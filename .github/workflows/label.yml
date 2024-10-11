@@ -1,20 +1,54 @@
-# This workflow will triage pull requests and apply a label based on the
-# paths that are modified in the pull request.
-#
-# To use this workflow, you will need to set up a .github/labeler.yml
-# file with configuration.  For more information, see:
-# https://github.com/actions/labeler
-
-name: Labeler
+name: Commit Message Labeler
 on: [pull_request_target]
 
 jobs:
   label:
-    permissions:
-      contents: read
-      pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Analyze commit messages
+        id: analyze
+        run: |
+          # Initialize an empty array for labels
+          labels=()
+
+          # Loop through each commit message in the PR
+          for COMMIT_MESSAGE in $(git log --pretty=%B); do
+            echo "Analyzing commit message: $COMMIT_MESSAGE"
+          
+            if [[ "$COMMIT_MESSAGE" =~ \bfix\b ]]; then
+              labels+=("fix")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \bdocs\b ]]; then
+              labels+=("documentation")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \btest\b ]]; then
+              labels+=("test")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \bfeat\b ]]; then
+              labels+=("feature")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \bbug\b ]]; then
+              labels+=("bug")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \brefactor\b ]]; then
+              labels+=("refactor")
+            fi
+            if [[ "$COMMIT_MESSAGE" =~ \bchore\b ]]; then
+              labels+=("chore")
+            fi
+          done
+
+          # Remove duplicate labels and join them into a comma-separated string
+          unique_labels=$(echo "${labels[@]}" | tr ' ' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+          echo "Labels to apply: $unique_labels"
+          echo "::set-output name=labels::$unique_labels"
+
+      - name: Add labels to PR
+        if: steps.analyze.outputs.labels != ''
+        uses: actions-ecosystem/action-add-labels@v1
         with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: ${{ steps.analyze.outputs.labels }}
