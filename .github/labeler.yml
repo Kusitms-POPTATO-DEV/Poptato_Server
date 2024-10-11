@@ -20,3 +20,4 @@ labels:
   'chore':
     include:
       - '\bchore\b'
+
